@@ -17,6 +17,8 @@
 @interface FBNestLineEffectView()
 @property (nonatomic, strong) NSMutableArray* nestPoints;
 @property (nonatomic, strong) FBNestPoint* currentPoint;
+
+@property (nonatomic, strong) CADisplayLink* displayLink;
 @end
 
 @implementation FBNestLineEffectView
@@ -42,8 +44,16 @@
 - (void)commonInit {
     self.backgroundColor = [UIColor whiteColor];
     [self initNestPoints];
+    
+    [self addNoti];
 }
 
+- (void)dealloc {
+    [self removeNoti];
+}
+
+
+#pragma mark -- privates
 - (void)initNestPoints {
     
     self.currentPoint = [[FBNestPoint alloc] init];
@@ -64,15 +74,53 @@
         [self.nestPoints addObject:p];
     }
     
-    CADisplayLink* displayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(drawNest)];
-    displayLink.frameInterval = 4;
-    [displayLink addToRunLoop:[NSRunLoop currentRunLoop] forMode:NSRunLoopCommonModes];
+    [self performSelector:@selector(setupDisplayLink) withObject:nil afterDelay:.5];
+    
+}
+
+
+- (CADisplayLink*)displayLink {
+    if (_displayLink == nil) {
+        _displayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(drawNest)];
+        _displayLink.frameInterval = 4;
+    }
+    return _displayLink;
+}
+
+- (void)setupDisplayLink {
+    [self.displayLink addToRunLoop:[NSRunLoop currentRunLoop] forMode:NSRunLoopCommonModes];
 }
 
 - (void)drawNest {
     [self setNeedsDisplay];
 }
 
+
+#pragma mark -- notifications
+- (void)addNoti {
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(appEnterBackground:) name:UIApplicationDidEnterBackgroundNotification object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(appBecomeActive:) name:UIApplicationDidBecomeActiveNotification object:nil];
+}
+
+- (void)removeNoti {
+    [[NSNotificationCenter defaultCenter] removeObserver:self name:UIApplicationDidEnterBackgroundNotification object:nil];
+    [[NSNotificationCenter defaultCenter] removeObserver:self name:UIApplicationDidBecomeActiveNotification object:nil];
+}
+
+- (void)appEnterBackground:(NSNotification*)noti {
+    if (self.displayLink) {
+        [self.displayLink invalidate];
+        self.displayLink = nil;
+    }
+}
+
+- (void)appBecomeActive:(NSNotification*)noti {
+    [self setupDisplayLink];
+}
+
+
+
+#pragma mark -- drawRect
 - (void)drawRect:(CGRect)rect {
     
     
